@@ -1,15 +1,15 @@
 cff-version: 1.2.0
 message: "If you use this work, please cite it as below."
-title: "template-repo"
-abstract: "Template repository for KIT Foundation projects."
+title: "slides-site"
+abstract: "Static website for publishing presentations openly and for internal use."
 authors:
-  - family-names: ""
-    given-names: ""
-    email: ""
-    orcid: ""
-repository-code: "https://github.com/KIT-Foundation/template-repo"
-date-released: ""
-version: ""
-license: ""
+  - family-names: "Bogdanovych"
+    given-names: "Andrii"
+    email: "a.bogdanovych@kit.foundation"
+    orcid: "https://orcid.org/0009-0006-9045-5675"
+repository-code: "https://github.com/KIT-Foundation/slides-site"
+date-released: "2026-09-09"
 keywords:
   - kit-foundation
+  - presentations
+  - slides
