@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Двоконтурна модель управління знаннями KIT</title>
+<style>
+:root {
+  /* Кольори */
+  --ink-900: #0B1220;
+  --ink-700: #1E293B;
+  --ink-500: #475569;
+  --ink-300: #94A3B8;
+  --paper: #FFFFFF;
+  --paper-alt: #F4F6F9;
+  --line: #E2E8F0;
+  --accent: #1D4ED8;
+  --accent-dark: #1E3A8A;
+  --accent-light: #60A5FA;
+  --data: #0D9488;
+  --data-light: #2DD4BF;
+  --signal: #D97706;
+
+  /* Типографіка */
+  --font-sans: "Inter", "Golos Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+
+  /* Відступи (крок 4px) */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px; --space-24: 96px;
+
+  /* Слайд */
+  --slide-w: 1280px;
+  --slide-h: 720px;
+  --slide-pad-x: 80px;
+  --slide-pad-y: 64px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--ink-300);
+  font-family: var(--font-sans);
+  color: var(--ink-900);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.slide {
+  width: var(--slide-w);
+  height: var(--slide-h);
+  margin: 0 auto 24px;
+  padding: var(--slide-pad-y) var(--slide-pad-x);
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.slide--dark { background: var(--ink-900); color: var(--paper); }
+
+.slide__kicker {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 var(--space-4);
+}
+.slide--dark .slide__kicker { color: var(--data-light); }
+
+.slide__title { font-size: 40px; font-weight: 700; line-height: 1.15; margin: 0 0 var(--space-4); }
+.slide--title .slide__title { font-size: 60px; }
+
+.slide__subtitle { font-size: 22px; font-weight: 400; color: var(--ink-500); margin: 0; }
+.slide--dark .slide__subtitle { color: var(--ink-300); }
+
+.slide__body { font-size: 20px; line-height: 1.55; color: var(--ink-700); max-width: 75%; }
+.slide__note { font-size: 16px; color: var(--ink-500); margin-top: var(--space-6); }
+
+.slide__list { list-style: none; margin: var(--space-6) 0 0; padding: 0; font-size: 20px; line-height: 1.5; }
+.slide__list li { position: relative; padding-left: var(--space-6); margin-bottom: var(--space-4); }
+.slide__list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+}
+
+.slide__two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-12); }
+
+.slide__quote { border-left: 3px solid var(--accent); padding-left: var(--space-6); font-size: 24px; color: var(--ink-700); }
+.slide__quote cite { display: block; margin-top: var(--space-4); font-size: 16px; font-style: normal; color: var(--ink-500); }
+
+.slide__table { width: 100%; border-collapse: collapse; font-size: 18px; }
+.slide__table th { text-align: left; border-bottom: 2px solid var(--accent); padding: var(--space-2) var(--space-4); font-weight: 600; }
+.slide__table td { border-bottom: 1px solid var(--line); padding: var(--space-2) var(--space-4); }
+
+.slide__figure { margin: 0; }
+.slide__figure img { width: 100%; max-height: 460px; object-fit: contain; border: 1px solid var(--line); display: block; background: var(--paper-alt); }
+.slide__figure figcaption { margin-top: var(--space-2); font-size: 14px; color: var(--ink-500); }
+
+.slide__footer {
+  position: absolute;
+  left: var(--slide-pad-x);
+  right: var(--slide-pad-x);
+  bottom: var(--space-6);
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.slide__mark { position: absolute; top: var(--space-8); right: var(--slide-pad-x); width: 28px; height: 28px; color: var(--data-light); }
+
+@page { size: 1280px 720px; margin: 0; }
+
+/* ===== Навігація, прогрес-бар та адаптивність (додано) ===== */
+#gap-progress {
+  position: fixed; top: 0; left: 0; height: 5px; width: 0%;
+  background: var(--accent); z-index: 1000;
+  transition: width .25s ease; box-shadow: 0 0 8px rgba(29,78,216,.5);
+}
+#gap-nav { position: fixed; inset: 0; pointer-events: none; z-index: 900; }
+#gap-nav button {
+  position: fixed; top: 50%; transform: translateY(-50%);
+  width: 50px; height: 50px; border-radius: 50%; border: none;
+  background: rgba(15,23,42,.5); color: #fff; font-size: 26px; line-height: 1;
+  cursor: pointer; pointer-events: auto; display: flex; align-items: center;
+  justify-content: center; backdrop-filter: blur(4px);
+  transition: background .15s, opacity .15s; opacity: .35;
+}
+#gap-nav button:hover { background: rgba(15,23,42,.88); opacity: 1; }
+#gap-prev { left: 18px; }
+#gap-next { right: 18px; }
+#gap-counter, #gap-hint {
+  position: fixed; bottom: 14px; z-index: 900; font-size: 12.5px;
+  color: #fff; background: rgba(15,23,42,.55); padding: 5px 12px;
+  border-radius: 999px; backdrop-filter: blur(4px);
+}
+#gap-counter { left: 18px; font-weight: 600; letter-spacing: .03em; }
+#gap-hint { right: 18px; opacity: .75; }
+#gap-print {
+  position: fixed; top: 14px; right: 18px; z-index: 900;
+  border: none; border-radius: 999px; cursor: pointer;
+  background: rgba(15,23,42,.55); color: #fff; padding: 6px 14px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: .02em;
+  backdrop-filter: blur(4px); transition: background .15s; opacity: .8;
+}
+#gap-print:hover { background: rgba(15,23,42,.9); opacity: 1; }
+body.gap-scroll #gap-nav button,
+body.gap-scroll #gap-counter,
+body.gap-scroll #gap-hint,
+body.gap-scroll #gap-print { display: none; }
+
+/* Режим презентації (один слайд на екран, масштабується під в'юпорт) */
+body.gap-deck { overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--ink-300); }
+body.gap-deck .slide { display: none; margin: 0; flex: 0 0 auto; transform: scale(var(--gap-scale, 1)); transform-origin: center center; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+body.gap-deck .slide.gap-active { display: flex; }
+
+@media (max-width: 640px) {
+  #gap-nav button { width: 42px; height: 42px; font-size: 22px; }
+  #gap-prev { left: 8px; } #gap-next { right: 8px; }
+  #gap-hint { display: none; }
+}
+
+@media print {
+  body { background: #fff !important; overflow: visible !important; }
+  body.gap-deck, body.gap-scroll { display: block !important; overflow: visible !important; }
+  #gap-progress, #gap-nav, #gap-counter, #gap-hint, #gap-print, #gap-mode { display: none !important; }
+  .slide-wrap { display: block !important; width: auto !important; max-width: none !important; height: auto !important; overflow: visible !important; margin: 0 !important; }
+  .slide,
+  body.gap-deck .slide,
+  body.gap-deck .slide.gap-active {
+    display: flex !important;
+    transform: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    page-break-after: always;
+    break-after: page;
+  }
+  .slide:last-child { page-break-after: auto; }
+}
+
+/* Перемикач способу перегляду (Слайди / Прокрутка) */
+#gap-mode {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 901;
+  display: flex; gap: 2px; background: rgba(15,23,42,.55); border-radius: 999px;
+  padding: 3px; backdrop-filter: blur(4px);
+}
+.gap-mode-btn {
+  border: none; background: transparent; color: #cbd5e1; cursor: pointer;
+  padding: 5px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  letter-spacing: .02em; transition: background .15s, color .15s; font-family: inherit;
+}
+.gap-mode-btn:hover { color: #fff; }
+.gap-mode-btn[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+/* Режим презентації (один слайд на екран, масштабується під в'юпорт) */
+body.gap-deck { overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--ink-300); }
+body.gap-deck .slide { display: none; margin: 0; flex: 0 0 auto; transform: scale(var(--gap-scale, 1)); transform-origin: center center; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+body.gap-deck .slide.gap-active { display: flex; }
+
+/* Обгортка для адаптивного масштабування в режимі прокрутки на вузьких екранах.
+   У режимі слайдів — display:contents (не створює боксу, слайд поводиться як раніше). */
+.slide-wrap { display: contents; }
+body.gap-scroll .slide-wrap { display: block; width: 100%; max-width: var(--slide-w); margin: 0 auto 24px; overflow: hidden; }
+body.gap-scroll .slide-wrap .slide { margin: 0; }
+
+
+/* ===== Компонування презентації про управління знаннями ===== */
+.slide--graphic .slide__title,
+.slide--compact-table .slide__title,
+.slide--two-columns .slide__title { margin-bottom: var(--space-3); }
+.slide--graphic .slide__kicker,
+.slide--compact-table .slide__kicker,
+.slide--two-columns .slide__kicker { margin-bottom: var(--space-3); }
+.slide--graphic .slide__figure { width: 100%; }
+.diagram-frame {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--paper-alt);
+  border: 1px solid var(--line);
+}
+.figure--contours .diagram-frame { height: 390px; }
+.figure--lifecycle .diagram-frame { height: 315px; }
+.figure--access .diagram-frame { height: 390px; }
+.embedded-diagram {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+.slide--two-columns .slide__two-col { align-items: start; }
+.slide--two-columns .slide__subtitle { font-size: 21px; font-weight: 600; color: var(--ink-700); }
+.slide--two-columns .slide__list { margin-top: var(--space-4); font-size: 18px; line-height: 1.4; }
+.slide--two-columns .slide__list li { margin-bottom: var(--space-3); }
+.slide--compact-table .slide__table { font-size: 16px; line-height: 1.3; }
+.slide--compact-table .slide__table th { padding: 8px 14px; }
+.slide--compact-table .slide__table td { padding: 8px 14px; vertical-align: top; }
+.slide--implementation .slide__table { font-size: 15px; }
+.slide--summary .slide__title { max-width: 900px; }
+.slide--summary .slide__list { margin-top: var(--space-4); font-size: 18px; line-height: 1.38; max-width: 1040px; }
+.slide--summary .slide__list li { margin-bottom: var(--space-3); }
+.slide--dark .slide__list li::before { background: var(--data-light); }
+
+.contours-native {
+  display: grid;
+  grid-template-columns: 1fr 72px 1fr;
+  gap: 18px;
+  width: 100%;
+  height: 100%;
+  padding: 18px;
+  align-items: stretch;
+}
+.contour {
+  border: 2px solid;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.contour--operational { border-color: var(--accent); background: #EFF6FF; }
+.contour--institutional { border-color: var(--data); background: #ECFDF5; }
+.contour__title { margin: 0 0 10px; font-size: 21px; text-align: center; }
+.contour__items { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.3; }
+.contour__items li { margin-bottom: 7px; }
+.contour__canonical {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  color: #fff;
+  background: var(--accent-dark);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+.contours-native__transition {
+  align-self: center;
+  color: var(--ink-500);
+  font-size: 30px;
+  font-weight: 600;
+  text-align: center;
+}
+.contours-native__transition span { display: block; margin-top: 6px; font-size: 12px; line-height: 1.25; }
+
+.governance-flow {
+  display: grid;
+  grid-template-columns: 1fr 42px 1.25fr 42px 1fr 42px 1.1fr;
+  align-items: center;
+  width: 100%;
+  margin-top: 22px;
+}
+.governance-flow--lifecycle {
+  grid-template-columns: 1fr 24px 1.1fr 24px 1fr 24px 1.1fr 60px 1.2fr 24px 1.1fr;
+  margin-top: 16px;
+}
+.governance-flow--lifecycle .governance-box {
+  min-height: 96px;
+  padding: 12px 8px;
+  font-size: 14px;
+}
+.governance-flow--lifecycle .governance-box strong { margin-bottom: 0; }
+.governance-box {
+  min-height: 112px;
+  padding: 18px 14px;
+  border: 2px solid var(--accent);
+  background: #EFF6FF;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.25;
+}
+.governance-box strong { display: block; margin-bottom: 8px; }
+.governance-box--decision { border-color: var(--signal); background: #FFF7ED; }
+.governance-box--institutional { border-color: var(--data); background: #ECFDF5; }
+.governance-arrow { color: var(--ink-500); font-size: 24px; text-align: center; position: relative; }
+.governance-arrow--approved { font-size: 20px; font-weight: 600; }
+.governance-arrow--approved span { display: block; font-size: 11px; color: var(--ink-500); margin-top: -2px; }
+</style>
+</head>
+<body>
+
+<section class="slide slide--dark slide--title">
+  
+  <svg class="slide__mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M4 24L14 10L24 18" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+    <circle cx="4" cy="24" r="2.5" fill="currentColor"/>
+    <circle cx="14" cy="10" r="2.5" fill="currentColor"/>
+    <circle cx="24" cy="18" r="2.5" fill="currentColor"/>
+  </svg>
+  <p class="slide__kicker">Концепція</p>
+  <h1 class="slide__title">Двоконтурна модель управління знаннями KIT</h1>
+  <p class="slide__subtitle">Поточна робота в операційному контурі. Затверджене знання в інституційному.</p>
+</section>
+
+<section class="slide slide--graphic">
+  <p class="slide__kicker">Модель · Структура</p>
+  <h1 class="slide__title">Два контури розрізняють роботу і затверджене знання</h1>
+  <figure class="slide__figure figure--contours" aria-label="Схема операційного та інституційного контурів, типів матеріалів і переходу після погодження та затвердження.">
+    <div class="diagram-frame">
+      <div class="contours-native" role="img" aria-label="Операційний контур містить поточну роботу, чернетки, персональні й командні OKR поточного циклу та матеріали до затвердження. Після погодження й затвердження довгостроково цінні матеріали переходять до одного канонічного місця в інституційному контурі.">
+        <div class="contour contour--operational">
+          <h2 class="contour__title">Операційний контур</h2>
+          <ul class="contour__items">
+            <li>Поточна робота та проєкти</li>
+            <li>Чернетки, обговорення, дослідження й матеріали зустрічей</li>
+            <li>Персональні й командні OKR поточного циклу</li>
+            <li>Матеріали до перевірки, погодження або затвердження</li>
+          </ul>
+        </div>
+        <div class="contours-native__transition" aria-hidden="true">→<span>Погодження й<br>затвердження</span></div>
+        <div class="contour contour--institutional">
+          <h2 class="contour__title">Інституційний контур</h2>
+          <p class="contour__canonical">Одне канонічне місце затвердженої версії</p>
+          <ul class="contour__items">
+            <li>Політики, рішення, шаблони й винесені уроки</li>
+            <li>Затверджені моделі, методики й цінні матеріали</li>
+            <li>Стратегічні OKR KIT, методика та підсумки циклів</li>
+            <li>Зовнішня доказова база</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <figcaption>Затверджена версія має одне канонічне місце в інституційному контурі.</figcaption>
+  </figure>
+  
+  <div class="slide__footer">
+    <span>Двоконтурна модель управління знаннями KIT</span>
+    <span>2</span>
+  </div>
+</section>
+
+<section class="slide slide--two-columns">
+  <p class="slide__kicker">Модель · Класифікація</p>
+  <h1 class="slide__title">Критерії вибору контуру</h1>
+  <div class="slide__two-col">
+    <div>
+      <p class="slide__subtitle">Операційний матеріал</p>
+      <ul class="slide__list">
+        <li>Підтримує поточну роботу й може змінюватися</li>
+        <li>Залежить від чинного складу команди або розподілу ролей</li>
+        <li>Потребує доопрацювання, перевірки, погодження або затвердження</li>
+      </ul>
+    </div>
+    <div>
+      <p class="slide__subtitle">Інституційне знання</p>
+      <ul class="slide__list">
+        <li>Має затверджений статус і довгострокову цінність для KIT</li>
+        <li>Зберігає цінність незалежно від змін у складі команди</li>
+        <li>Має одне канонічне місце збереження</li>
+      </ul>
+    </div>
+  </div>
+  <p class="slide__note">Для OKR вирішальними є статус і довгострокова цінність. Персональні й командні OKR поточного циклу залишаються операційними; до інституційного контуру входять стратегічні OKR KIT верхнього рівня, методика та узагальнені підсумки.</p>
+  
+  <div class="slide__footer">
+    <span>Двоконтурна модель управління знаннями KIT</span>
+    <span>3</span>
+  </div>
+</section>
+
+<section class="slide slide--graphic">
+  <p class="slide__kicker">Модель · Перехід</p>
+  <h1 class="slide__title">Затвердження змінює статус матеріалу</h1>
+  <figure class="slide__figure figure--lifecycle" aria-label="Життєвий цикл від робочого матеріалу через підготовку, погодження, затвердження, належне розміщення й оприлюднення до канонічної версії та подальшого оновлення.">
+      <div class="diagram-frame">
+        <svg id="km-lifecycle-svg" width="100%" height="100%" viewBox="0 0 1150 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Схема життєвого циклу документа">
+          <defs>
+            <style>
+              #km-lifecycle-svg { font-family: "Inter", "Golos Text", "Segoe UI", sans-serif; }
+              #km-lifecycle-svg .box { rx: 6px; ry: 6px; }
+              #km-lifecycle-svg .op-box { fill: #EFF6FF; stroke: #1D4ED8; stroke-width: 1.5px; }
+              #km-lifecycle-svg .dec-box { fill: #FFF7ED; stroke: #D97706; stroke-width: 2px; }
+              #km-lifecycle-svg .inst-box { fill: #ECFDF5; stroke: #0D9488; stroke-width: 1.5px; }
+              #km-lifecycle-svg .upd-box { fill: #F8FAFC; stroke: #94A3B8; stroke-width: 1.5px; stroke-dasharray: 5 4; }
+              #km-lifecycle-svg text { fill: #0B1220; font-size: 13.5px; text-anchor: middle; dominant-baseline: middle; }
+              #km-lifecycle-svg .upd-text { fill: #475569; }
+              #km-lifecycle-svg .label-text { fill: #1E293B; font-size: 12px; font-weight: 600; }
+              #km-lifecycle-svg .arrow { stroke: #475569; stroke-width: 1.5px; fill: none; }
+              #km-lifecycle-svg .arrow-thick { stroke: #1E3A8A; stroke-width: 3px; fill: none; }
+              #km-lifecycle-svg .arrow-dashed { stroke: #94A3B8; stroke-width: 1.5px; stroke-dasharray: 5 4; fill: none; }
+              #km-lifecycle-svg .marker-dark { fill: #1E3A8A; }
+              #km-lifecycle-svg .marker-gray { fill: #475569; }
+              #km-lifecycle-svg .marker-light { fill: #94A3B8; }
+            </style>
+            <marker id="arr-dark" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" class="marker-dark" />
+            </marker>
+            <marker id="arr-gray" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" class="marker-gray" />
+            </marker>
+            <marker id="arr-light" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" class="marker-light" />
+            </marker>
+          </defs>
+
+          <!-- Nodes -->
+          <!-- 1. W: Робочий матеріал (x: 15, y: 35, w: 130, h: 65) -->
+          <rect x="15" y="35" width="130" height="65" class="box op-box"/>
+          <text x="80" y="60">Робочий</text>
+          <text x="80" y="78">матеріал</text>
+
+          <!-- 2. P: Підготовка й доопрацювання (x: 185, y: 35, w: 145, h: 65) -->
+          <rect x="185" y="35" width="145" height="65" class="box op-box"/>
+          <text x="257.5" y="60">Підготовка й</text>
+          <text x="257.5" y="78">доопрацювання</text>
+
+          <!-- 3. A: Погодження змісту (x: 370, y: 35, w: 135, h: 65) -->
+          <rect x="370" y="35" width="135" height="65" class="box op-box"/>
+          <text x="437.5" y="60">Погодження</text>
+          <text x="437.5" y="78">змісту</text>
+
+          <!-- 4. G: Управлінське затвердження (Diamond / Rhombus center at x: 585, y: 67.5) -->
+          <polygon points="585,15 655,67.5 585,120 515,67.5" class="box dec-box"/>
+          <text x="585" y="60" font-weight="500">Управлінське</text>
+          <text x="585" y="78" font-weight="500">затвердження</text>
+
+          <!-- 5. L: Належне розміщення й оприлюднення (x: 735, y: 35, w: 170, h: 65) -->
+          <rect x="735" y="35" width="170" height="65" class="box inst-box"/>
+          <text x="820" y="60">Належне розміщення</text>
+          <text x="820" y="78">й оприлюднення</text>
+
+          <!-- 6. I: Інституційне знання (x: 945, y: 35, w: 185, h: 65) -->
+          <rect x="945" y="35" width="185" height="65" class="box inst-box"/>
+          <text x="1037.5" y="60" font-weight="600">Інституційне знання</text>
+          <text x="1037.5" y="78">Канонічна версія</text>
+
+          <!-- 7. U: Потреба в оновленні (x: 515, y: 150, w: 140, h: 55) -->
+          <rect x="515" y="150" width="140" height="55" class="box upd-box"/>
+          <text x="585" y="170" class="upd-text">Потреба</text>
+          <text x="585" y="186" class="upd-text">в оновленні</text>
+
+          <!-- Connectors / Arrows -->
+          <!-- W -> P -->
+          <path d="M 145 67.5 L 185 67.5" class="arrow" marker-end="url(#arr-gray)"/>
+
+          <!-- P -> A -->
+          <path d="M 330 67.5 L 370 67.5" class="arrow" marker-end="url(#arr-gray)"/>
+
+          <!-- A -> G -->
+          <path d="M 505 67.5 L 515 67.5" class="arrow" marker-end="url(#arr-gray)"/>
+
+          <!-- G ==> L (Approved) -->
+          <path d="M 655 67.5 L 735 67.5" class="arrow-thick" marker-end="url(#arr-dark)"/>
+
+          <!-- L -> I -->
+          <path d="M 905 67.5 L 945 67.5" class="arrow" marker-end="url(#arr-gray)"/>
+
+          <!-- I -.-> U -->
+          <path d="M 1037.5 100 L 1037.5 177.5 L 655 177.5" class="arrow-dashed" marker-end="url(#arr-light)"/>
+
+          <!-- U -.-> P -->
+          <path d="M 515 177.5 L 257.5 177.5 L 257.5 100" class="arrow-dashed" marker-end="url(#arr-light)"/>
+        </svg>
+      </div>
+    <figcaption>Детальна процедура погодження, оприлюднення й оновлення ще має бути визначена окремо.</figcaption>
+  </figure>
+  
+  <div class="slide__footer">
+    <span>Двоконтурна модель управління знаннями KIT</span>
+    <span>4</span>
+  </div>
+</section>
+
+<section class="slide slide--compact-table">
+  <p class="slide__kicker">Модель · Ролі</p>
+  <h1 class="slide__title">П'ять функцій утримують систему керованою</h1>
+  <table class="slide__table">
+    <colgroup><col style="width:30%"><col style="width:70%"></colgroup>
+    <thead><tr><th>Функціональна роль</th><th>Межа відповідальності</th></tr></thead>
+    <tbody>
+      <tr><td>Відповідальність за зміст</td><td>Змістова якість і погодження в межах напряму</td></tr>
+      <tr><td>Затвердження</td><td>Статус затвердженого документа й дозвіл на включення до інституційного контуру</td></tr>
+      <tr><td>Публікація</td><td>Технічна підготовка й розміщення затвердженої версії документа в канонічному місці з доступом у встановлених межах</td></tr>
+      <tr><td>Адміністрування</td><td>Архітектура бази знань і правила технічного супроводу</td></tr>
+      <tr><td>Користування</td><td>Читання, пошук і підготовка чернеток у межах наданого доступу</td></tr>
+    </tbody>
+  </table>
+  
+  <div class="slide__footer">
+    <span>Двоконтурна модель управління знаннями KIT</span>
+    <span>5</span>
+  </div>
+</section>
+
+<section class="slide slide--graphic">
+  <p class="slide__kicker">Реалізація · Чинний порядок</p>
+  <h1 class="slide__title">Затвердження і супровід на підготовчому етапі</h1>
+  <div class="governance-flow" role="img" aria-label="Owner погоджує зміст із Founder &amp; Strategic Lead. Після затвердження перенесення функція публікації технічно розміщує канонічну версію в GitHub-репозиторії.">
+    <div class="governance-box"><strong>Owner</strong><span>Погодження змісту</span></div>
+    <div class="governance-arrow" aria-hidden="true">→</div>
+    <div class="governance-box governance-box--decision"><strong>Founder &amp; Strategic Lead</strong><span>Затвердження</span></div>
+    <div class="governance-arrow" aria-hidden="true">→</div>
+    <div class="governance-box governance-box--institutional"><strong>Публікація</strong><span>Технічне розміщення</span></div>
+    <div class="governance-arrow" aria-hidden="true">→</div>
+    <div class="governance-box governance-box--institutional"><strong>GitHub-репозиторій</strong><span>Канонічна версія</span></div>
+  </div>
+  <div class="slide__footer">
+    <span>Двоконтурна модель управління знаннями KIT</span>
+    <span>6</span>
+  </div>
+</section>
+
+<section class="slide slide--graphic">
+  <p class="slide__kicker">Модель · Доступ</p>
+  <h1 class="slide__title">Три чинники визначають межі доступу</h1>
+  <figure class="slide__figure figure--access" aria-label="П'ять функціональних ролей разом із контуром матеріалу та характером інформації визначають межі доступу до дозволених матеріалів і дій.">
+    <div class="diagram-frame"><svg id="km-access" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart embedded-diagram" style="max-width: 1176.47px; background-color: transparent;" viewBox="0 -1 1176.46875 581" role="img" aria-label="Функціональні ролі, контур матеріалу та характер інформації визначають межі доступу." aria-roledescription="flowchart-v2"><style>#km-access{font-family:Inter,Golos Text,Segoe UI,system-ui,sans-serif;font-size:16px;fill:#0B1220;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#km-access .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#km-access .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#km-access .error-icon{fill:#FFF7ED;}#km-access .error-text{fill:#000812;stroke:#000812;}#km-access .edge-thickness-normal{stroke-width:1px;}#km-access .edge-thickness-thick{stroke-width:3.5px;}#km-access .edge-pattern-solid{stroke-dasharray:0;}#km-access .edge-thickness-invisible{stroke-width:0;fill:none;}#km-access .edge-pattern-dashed{stroke-dasharray:3;}#km-access .edge-pattern-dotted{stroke-dasharray:2;}#km-access .marker{fill:#475569;stroke:#475569;}#km-access .marker.cross{stroke:#475569;}#km-access svg{font-family:Inter,Golos Text,Segoe UI,system-ui,sans-serif;font-size:16px;}#km-access p{margin:0;}#km-access .label{font-family:Inter,Golos Text,Segoe UI,system-ui,sans-serif;color:#0B1220;}#km-access .cluster-label text{fill:#000812;}#km-access .cluster-label span{color:#000812;}#km-access .cluster-label span p{background-color:transparent;}#km-access .label text,#km-access span{fill:#0B1220;color:#0B1220;}#km-access .node rect,#km-access .node circle,#km-access .node ellipse,#km-access .node polygon,#km-access .node path{fill:#EFF6FF;stroke:#1D4ED8;stroke-width:1px;}#km-access .rough-node .label text,#km-access .node .label text,#km-access .image-shape .label,#km-access .icon-shape .label{text-anchor:middle;}#km-access .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#km-access .rough-node .label,#km-access .node .label,#km-access .image-shape .label,#km-access .icon-shape .label{text-align:center;}#km-access .node.clickable{cursor:pointer;}#km-access .root .anchor path{fill:#475569!important;stroke-width:0;stroke:#475569;}#km-access .arrowheadPath{fill:#0b0b0b;}#km-access .edgePaths .path{stroke:#475569;stroke-width:1px;}#km-access .flowchart-link{stroke:#475569;fill:none;}#km-access .edgeLabel{background-color:#ECFDF5;text-align:center;}#km-access .edgeLabel p{background-color:#ECFDF5;}#km-access .edgeLabel rect{opacity:0.5;background-color:#ECFDF5;fill:#ECFDF5;}#km-access .labelBkg{background-color:rgba(236, 253, 245, 0.5);}#km-access .cluster rect{fill:#F8FAFC;stroke:#CBD5E1;stroke-width:1px;}#km-access .cluster text{fill:#000812;}#km-access .cluster span{color:#000812;}#km-access .node .collapsed-indicator{fill:#CBD5E1;stroke:none;opacity:0.6;}#km-access .node .collapsed-separator{stroke:#CBD5E1;stroke-width:0.75px;}#km-access div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Inter,Golos Text,Segoe UI,system-ui,sans-serif;font-size:12px;background:#FFF7ED;border:1px solid hsl(33.3333333333, 60%, 86.4705882353%);border-radius:2px;pointer-events:none;z-index:100;}#km-access .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#0B1220;}#km-access rect.text{fill:none;stroke-width:0;}#km-access .icon-shape,#km-access .image-shape{background-color:#ECFDF5;text-align:center;}#km-access .icon-shape p,#km-access .image-shape p{background-color:#ECFDF5;padding:2px;}#km-access .icon-shape .label rect,#km-access .image-shape .label rect{opacity:0.5;background-color:#ECFDF5;fill:#ECFDF5;}#km-access .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#km-access .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#km-access .node .neo-node{stroke:#1D4ED8;}#km-access [data-look="neo"].node rect,#km-access [data-look="neo"].cluster rect,#km-access [data-look="neo"].node polygon{stroke:url(#km-access-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#km-access [data-look="neo"].swimlane.cluster rect{filter:none;}#km-access [data-look="neo"].node path{stroke:url(#km-access-gradient);stroke-width:1px;}#km-access [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#km-access [data-look="neo"].node .neo-line path{stroke:#1D4ED8;filter:none;}#km-access [data-look="neo"].node circle{stroke:url(#km-access-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#km-access [data-look="neo"].node circle .state-start{fill:#000000;}#km-access [data-look="neo"].icon-shape .icon{fill:url(#km-access-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#km-access [data-look="neo"].icon-shape .icon-neo path{stroke:url(#km-access-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#km-access :root{--mermaid-font-family:Inter,Golos Text,Segoe UI,system-ui,sans-serif;}#km-access .role rect{fill:rgb(248, 250, 252)!important;stroke:rgb(148, 163, 184)!important;color:rgb(11, 18, 32)!important;stroke-width:1.2px!important;}#km-access .role polygon{fill:rgb(248, 250, 252)!important;stroke:rgb(148, 163, 184)!important;color:rgb(11, 18, 32)!important;stroke-width:1.2px!important;}#km-access .role ellipse{fill:rgb(248, 250, 252)!important;stroke:rgb(148, 163, 184)!important;color:rgb(11, 18, 32)!important;stroke-width:1.2px!important;}#km-access .role circle{fill:rgb(248, 250, 252)!important;stroke:rgb(148, 163, 184)!important;color:rgb(11, 18, 32)!important;stroke-width:1.2px!important;}#km-access .role path{fill:rgb(248, 250, 252)!important;stroke:rgb(148, 163, 184)!important;color:rgb(11, 18, 32)!important;stroke-width:1.2px!important;}#km-access .role tspan{fill:rgb(11, 18, 32)!important;}#km-access .factor rect{fill:rgb(239, 246, 255)!important;stroke:rgb(29, 78, 216)!important;color:rgb(11, 18, 32)!important;stroke-width:1.5px!important;}#km-access .factor polygon{fill:rgb(239, 246, 255)!important;stroke:rgb(29, 78, 216)!important;color:rgb(11, 18, 32)!important;stroke-width:1.5px!important;}#km-access .factor ellipse{fill:rgb(239, 246, 255)!important;stroke:rgb(29, 78, 216)!important;color:rgb(11, 18, 32)!important;stroke-width:1.5px!important;}#km-access .factor circle{fill:rgb(239, 246, 255)!important;stroke:rgb(29, 78, 216)!important;color:rgb(11, 18, 32)!important;stroke-width:1.5px!important;}#km-access .factor path{fill:rgb(239, 246, 255)!important;stroke:rgb(29, 78, 216)!important;color:rgb(11, 18, 32)!important;stroke-width:1.5px!important;}#km-access .factor tspan{fill:rgb(11, 18, 32)!important;}#km-access .access rect{fill:rgb(30, 58, 138)!important;stroke:rgb(30, 58, 138)!important;color:rgb(255, 255, 255)!important;stroke-width:2px!important;}#km-access .access polygon{fill:rgb(30, 58, 138)!important;stroke:rgb(30, 58, 138)!important;color:rgb(255, 255, 255)!important;stroke-width:2px!important;}#km-access .access ellipse{fill:rgb(30, 58, 138)!important;stroke:rgb(30, 58, 138)!important;color:rgb(255, 255, 255)!important;stroke-width:2px!important;}#km-access .access circle{fill:rgb(30, 58, 138)!important;stroke:rgb(30, 58, 138)!important;color:rgb(255, 255, 255)!important;stroke-width:2px!important;}#km-access .access path{fill:rgb(30, 58, 138)!important;stroke:rgb(30, 58, 138)!important;color:rgb(255, 255, 255)!important;stroke-width:2px!important;}#km-access .access tspan{fill:rgb(255, 255, 255)!important;}#km-access .outcome rect{fill:rgb(236, 253, 245)!important;stroke:rgb(13, 148, 136)!important;color:rgb(11, 18, 32)!important;stroke-width:1.5px!important;}#km-access .outcome polygon{fill:rgb(236, 253, 245)!important;stroke:rgb(13, 148, 136)!important;color:rgb(11, 18, 32)!important;stroke-width:1.5px!important;}#km-access .outcome ellipse{fill:rgb(236, 253, 245)!important;stroke:rgb(13, 148, 136)!important;color:rgb(11, 18, 32)!important;stroke-width:1.5px!important;}#km-access .outcome circle{fill:rgb(236, 253, 245)!important;stroke:rgb(13, 148, 136)!important;color:rgb(11, 18, 32)!important;stroke-width:1.5px!important;}#km-access .outcome path{fill:rgb(236, 253, 245)!important;stroke:rgb(13, 148, 136)!important;color:rgb(11, 18, 32)!important;stroke-width:1.5px!important;}#km-access .outcome tspan{fill:rgb(11, 18, 32)!important;}</style><g><marker id="km-access_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="km-access_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="km-access_flowchart-v2-pointEnd-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="11.5" refY="7" markerUnits="userSpaceOnUse" markerWidth="10.5" markerHeight="14" orient="auto"><path d="M 0 0 L 11.5 7 L 0 14 z" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="km-access_flowchart-v2-pointStart-margin" class="marker flowchart-v2" viewBox="0 0 11.5 14" refX="1" refY="7" markerUnits="userSpaceOnUse" markerWidth="11.5" markerHeight="14" orient="auto"><polygon points="0,7 11.5,14 11.5,0" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="km-access_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="km-access_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="km-access_flowchart-v2-circleEnd-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refY="5" refX="12.25" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="km-access_flowchart-v2-circleStart-margin" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 0; stroke-dasharray: 1, 0;"/></marker><marker id="km-access_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="km-access_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="km-access_flowchart-v2-crossEnd-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="17.7" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5;"/></marker><marker id="km-access_flowchart-v2-crossStart-margin" class="marker cross flowchart-v2" viewBox="0 0 15 15" refX="-3.5" refY="7.5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M 1,1 L 14,14 M 1,14 L 14,1" class="arrowMarkerPath" style="stroke-width: 2.5; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"><g class="cluster" id="km-access-ROLES" data-look="classic"><rect style="" x="8" y="8" width="306.34375" height="564"/><g class="cluster-label" transform="translate(84.71875, 8)"><g><rect class="background" style="stroke: none"/><text y="-10.1" style=""><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em"><tspan font-style="normal" class="text-inner-tspan" font-weight="normal">Функціональні</tspan><tspan font-style="normal" class="text-inner-tspan" font-weight="normal"> ролі</tspan></tspan></text></g></g></g></g><g class="edgePaths"><path d="M257.664,82L267.111,82C276.557,82,295.451,82,309.064,82C322.677,82,331.01,82,354.793,113.6C378.575,145.201,417.806,208.401,437.421,240.001L457.037,271.602" id="km-access-L_R1_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_R1_F_0" data-points="W3sieCI6MjU3LjY2NDA2MjUsInkiOjgyfSx7IngiOjMxNC4zNDM3NSwieSI6ODJ9LHsieCI6MzM5LjM0Mzc1LCJ5Ijo4Mn0seyJ4Ijo0NTkuMTQ2MzA2ODE4MTgxOCwieSI6Mjc1fV0=" data-look="classic" marker-end="url(#km-access_flowchart-v2-pointEnd)"/><path d="M247.883,198L258.96,198C270.036,198,292.19,198,307.434,198C322.677,198,331.01,198,351.498,210.429C371.986,222.859,404.628,247.718,420.949,260.147L437.27,272.577" id="km-access-L_R2_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_R2_F_0" data-points="W3sieCI6MjQ3Ljg4MjgxMjUsInkiOjE5OH0seyJ4IjozMTQuMzQzNzUsInkiOjE5OH0seyJ4IjozMzkuMzQzNzUsInkiOjE5OH0seyJ4Ijo0NDAuNDUyNTI0MDM4NDYxNTUsInkiOjI3NX1d" data-look="classic" marker-end="url(#km-access_flowchart-v2-pointEnd)"/><path d="M263.141,302L271.674,302C280.208,302,297.276,302,309.977,302C322.677,302,331.01,302,338.677,302C346.344,302,353.344,302,356.844,302L360.344,302" id="km-access-L_R3_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_R3_F_0" data-points="W3sieCI6MjYzLjE0MDYyNSwieSI6MzAyfSx7IngiOjMxNC4zNDM3NSwieSI6MzAyfSx7IngiOjMzOS4zNDM3NSwieSI6MzAyfSx7IngiOjM2NC4zNDM3NSwieSI6MzAyfV0=" data-look="classic" marker-end="url(#km-access_flowchart-v2-pointEnd)"/><path d="M289.344,406L293.51,406C297.677,406,306.01,406,314.344,406C322.677,406,331.01,406,351.498,393.571C371.986,381.141,404.628,356.282,420.949,343.853L437.27,331.423" id="km-access-L_R4_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_R4_F_0" data-points="W3sieCI6Mjg5LjM0Mzc1LCJ5Ijo0MDZ9LHsieCI6MzE0LjM0Mzc1LCJ5Ijo0MDZ9LHsieCI6MzM5LjM0Mzc1LCJ5Ijo0MDZ9LHsieCI6NDQwLjQ1MjUyNDAzODQ2MTU1LCJ5IjozMjl9XQ==" data-look="classic" marker-end="url(#km-access_flowchart-v2-pointEnd)"/><path d="M246.516,510L257.82,510C269.125,510,291.734,510,307.206,510C322.677,510,331.01,510,354.617,480.391C378.224,450.781,417.104,391.562,436.544,361.953L455.984,332.344" id="km-access-L_R5_F_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_R5_F_0" data-points="W3sieCI6MjQ2LjUxNTYyNSwieSI6NTEwfSx7IngiOjMxNC4zNDM3NSwieSI6NTEwfSx7IngiOjMzOS4zNDM3NSwieSI6NTEwfSx7IngiOjQ1OC4xNzkzODcwMTkyMzA4LCJ5IjozMjl9XQ==" data-look="classic" marker-end="url(#km-access_flowchart-v2-pointEnd)"/><path d="M544.781,186L556.063,186C567.344,186,589.906,186,615.672,198.4C641.437,210.8,670.406,235.599,684.89,247.999L699.374,260.399" id="km-access-L_C_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_C_D_0" data-points="W3sieCI6NTQ0Ljc4MTI1LCJ5IjoxODZ9LHsieCI6NjEyLjQ2ODc1LCJ5IjoxODZ9LHsieCI6NzAyLjQxMjcxNTUxNzI0MTQsInkiOjI2M31d" data-look="classic" marker-end="url(#km-access_flowchart-v2-pointEnd)"/><path d="M587.469,302L591.635,302C595.802,302,604.135,302,611.802,302C619.469,302,626.469,302,629.969,302L633.469,302" id="km-access-L_F_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_F_D_0" data-points="W3sieCI6NTg3LjQ2ODc1LCJ5IjozMDJ9LHsieCI6NjEyLjQ2ODc1LCJ5IjozMDJ9LHsieCI6NjM3LjQ2ODc1LCJ5IjozMDJ9XQ==" data-look="classic" marker-end="url(#km-access_flowchart-v2-pointEnd)"/><path d="M548.273,418L558.973,418C569.672,418,591.07,418,616.254,405.6C641.437,393.2,670.406,368.401,684.89,356.001L699.374,343.601" id="km-access-L_N_D_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_N_D_0" data-points="W3sieCI6NTQ4LjI3MzQzNzUsInkiOjQxOH0seyJ4Ijo2MTIuNDY4NzUsInkiOjQxOH0seyJ4Ijo3MDIuNDEyNzE1NTE3MjQxNCwieSI6MzQxfV0=" data-look="classic" marker-end="url(#km-access_flowchart-v2-pointEnd)"/><path d="M858.469,302L862.635,302C866.802,302,875.135,302,882.802,302C890.469,302,897.469,302,900.969,302L904.469,302" id="km-access-L_D_A_0" class="edge-thickness-thick edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_D_A_0" data-points="W3sieCI6ODU4LjQ2ODc1LCJ5IjozMDJ9LHsieCI6ODgzLjQ2ODc1LCJ5IjozMDJ9LHsieCI6OTA4LjQ2ODc1LCJ5IjozMDJ9XQ==" data-look="classic" marker-end="url(#km-access_flowchart-v2-pointEnd)"/></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_R1_F_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_R2_F_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_R3_F_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_R4_F_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_R5_F_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_C_D_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_F_D_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_N_D_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g><g class="edgeLabel"><g class="label" data-id="L_D_A_0" transform="translate(0, 0)"><text y="-10.1" text-anchor="middle"><tspan class="text-outer-tspan row" x="0" y="-0.1em" dy="1.1em" text-anchor="middle"/></text></g></g><g><rect class="background" style="stroke: none"/></g></g><g class="nodes"><g class="node default role" id="km-access-flowchart-R1-0" data-look="classic" transform="translate(161.171875, 82)"><rect class="basic label-container" style="fill:#F8FAFC !important;stroke:#94A3B8 !important;stroke-width:1.2px !important" x="-96.4921875" y="-39" width="192.984375" height="78"/><g class="label" style="color:#0B1220 !important" transform="translate(-66.4921875, -24)"><rect/><foreignObject width="132.984375" height="48"><div style="color: rgb(11, 18, 32) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#0B1220 !important" class="nodeLabel"><p>Відповідальність<br />за зміст</p></span></div></foreignObject></g></g><g class="node default role" id="km-access-flowchart-R2-1" data-look="classic" transform="translate(161.171875, 198)"><rect class="basic label-container" style="fill:#F8FAFC !important;stroke:#94A3B8 !important;stroke-width:1.2px !important" x="-86.7109375" y="-27" width="173.421875" height="54"/><g class="label" style="color:#0B1220 !important" transform="translate(-56.7109375, -12)"><rect/><foreignObject width="113.421875" height="24"><div style="color: rgb(11, 18, 32) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#0B1220 !important" class="nodeLabel"><p>Затвердження</p></span></div></foreignObject></g></g><g class="node default role" id="km-access-flowchart-R3-2" data-look="classic" transform="translate(161.171875, 302)"><rect class="basic label-container" style="fill:#F8FAFC !important;stroke:#94A3B8 !important;stroke-width:1.2px !important" x="-101.96875" y="-27" width="203.9375" height="54"/><g class="label" style="color:#0B1220 !important" transform="translate(-71.96875, -12)"><rect/><foreignObject width="143.9375" height="24"><div style="color: rgb(11, 18, 32) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#0B1220 !important" class="nodeLabel"><p>Функція публікації</p></span></div></foreignObject></g></g><g class="node default role" id="km-access-flowchart-R4-3" data-look="classic" transform="translate(161.171875, 406)"><rect class="basic label-container" style="fill:#F8FAFC !important;stroke:#94A3B8 !important;stroke-width:1.2px !important" x="-128.171875" y="-27" width="256.34375" height="54"/><g class="label" style="color:#0B1220 !important" transform="translate(-98.171875, -12)"><rect/><foreignObject width="196.34375" height="24"><div style="color: rgb(11, 18, 32) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#0B1220 !important" class="nodeLabel"><p>Функція адміністрування</p></span></div></foreignObject></g></g><g class="node default role" id="km-access-flowchart-R5-4" data-look="classic" transform="translate(161.171875, 510)"><rect class="basic label-container" style="fill:#F8FAFC !important;stroke:#94A3B8 !important;stroke-width:1.2px !important" x="-85.34375" y="-27" width="170.6875" height="54"/><g class="label" style="color:#0B1220 !important" transform="translate(-55.34375, -12)"><rect/><foreignObject width="110.6875" height="24"><div style="color: rgb(11, 18, 32) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#0B1220 !important" class="nodeLabel"><p>Користування</p></span></div></foreignObject></g></g><g class="node default factor" id="km-access-flowchart-F-6" data-look="classic" transform="translate(475.90625, 302)"><rect class="basic label-container" style="fill:#EFF6FF !important;stroke:#1D4ED8 !important;stroke-width:1.5px !important" x="-111.5625" y="-27" width="223.125" height="54"/><g class="label" style="color:#0B1220 !important" transform="translate(-81.5625, -12)"><rect/><foreignObject width="163.125" height="24"><div style="color: rgb(11, 18, 32) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#0B1220 !important" class="nodeLabel"><p>Функціональна роль</p></span></div></foreignObject></g></g><g class="node default factor" id="km-access-flowchart-C-15" data-look="classic" transform="translate(475.90625, 186)"><rect class="basic label-container" style="fill:#EFF6FF !important;stroke:#1D4ED8 !important;stroke-width:1.5px !important" x="-68.875" y="-39" width="137.75" height="78"/><g class="label" style="color:#0B1220 !important" transform="translate(-38.875, -24)"><rect/><foreignObject width="77.75" height="48"><div style="color: rgb(11, 18, 32) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#0B1220 !important" class="nodeLabel"><p>Контур<br />матеріалу</p></span></div></foreignObject></g></g><g class="node default access" id="km-access-flowchart-D-16" data-look="classic" transform="translate(747.96875, 302)"><rect class="basic label-container" style="fill:#1E3A8A !important;stroke:#1E3A8A !important;stroke-width:2px !important" x="-110.5" y="-39" width="221" height="78"/><g class="label" style="color:#FFFFFF !important" transform="translate(-80.5, -24)"><rect/><foreignObject width="161" height="48"><div style="color: rgb(255, 255, 255) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#FFFFFF !important" class="nodeLabel"><p>Межі встановленого<br />доступу</p></span></div></foreignObject></g></g><g class="node default factor" id="km-access-flowchart-N-19" data-look="classic" transform="translate(475.90625, 418)"><rect class="basic label-container" style="fill:#EFF6FF !important;stroke:#1D4ED8 !important;stroke-width:1.5px !important" x="-72.3671875" y="-39" width="144.734375" height="78"/><g class="label" style="color:#0B1220 !important" transform="translate(-42.3671875, -24)"><rect/><foreignObject width="84.734375" height="48"><div style="color: rgb(11, 18, 32) !important; display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#0B1220 !important" class="nodeLabel"><p>Характер<br />інформації</p></span></div></foreignObject></g></g><g class="node default outcome" id="km-access-flowchart-A-22" data-look="classic" transform="translate(1038.46875, 302)"><rect class="basic label-container" style="fill:#ECFDF5 !important;stroke:#0D9488 !important;stroke-width:1.5px !important" x="-130" y="-51" width="260" height="102"/><g class="label" style="color:#0B1220 !important" transform="translate(-100, -36)"><rect/><foreignObject width="200" height="72"><div style="color: rgb(11, 18, 32) !important; display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;" xmlns="http://www.w3.org/1999/xhtml"><span style="color:#0B1220 !important" class="nodeLabel"><p>Лише дозволені матеріали<br />та дії в межах доступу</p></span></div></foreignObject></g></g></g></g></g><defs><filter id="km-access-drop-shadow" height="130%" width="130%"><feDropShadow dx="4" dy="4" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><defs><filter id="km-access-drop-shadow-small" height="150%" width="150%"><feDropShadow dx="2" dy="2" stdDeviation="0" flood-opacity="0.06" flood-color="#000000"/></filter></defs><linearGradient id="km-access-gradient" gradientUnits="objectBoundingBox" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1D4ED8" stop-opacity="1"/><stop offset="100%" stop-color="#0D9488" stop-opacity="1"/></linearGradient></svg></div>
+    <figcaption>Конкретні права й вимоги безпеки мають бути визначені окремими політиками.</figcaption>
+  </figure>
+  
+  <div class="slide__footer">
+    <span>Двоконтурна модель управління знаннями KIT</span>
+    <span>7</span>
+  </div>
+</section>
+
+<section class="slide slide--compact-table slide--implementation">
+  <p class="slide__kicker">Реалізація · Поточний стан</p>
+  <h1 class="slide__title">Засоби реалізації підтримують функції моделі</h1>
+  <table class="slide__table">
+    <colgroup><col style="width:24%"><col style="width:31%"><col style="width:45%"></colgroup>
+    <thead><tr><th>Функція</th><th>Платформа або канал</th><th>Поточний статус</th></tr></thead>
+    <tbody>
+      <tr><td>Операційна робота</td><td>Google Workspace</td><td>Поточне середовище</td></tr>
+      <tr><td>Канонічне збереження</td><td>Контрольовані GitHub-репозиторії</td><td>Поточне середовище</td></tr>
+      <tr><td>Спрощене представлення</td><td>Статичний сайт</td><td>Окреме архітектурне рішення</td></tr>
+      <tr><td>Відповіді й чернетки</td><td>KIT Agent через чат або електронну пошту</td><td>Пілотний режим; читання лише дозволених матеріалів</td></tr>
+      <tr><td>Локальна робота</td><td>Git та агенти</td><td>Для осіб із поглибленими цифровими навичками</td></tr>
+    </tbody>
+  </table>
+  
+  <div class="slide__footer">
+    <span>Двоконтурна модель управління знаннями KIT</span>
+    <span>8</span>
+  </div>
+</section>
+
+<section class="slide slide--dark slide--section slide--summary">
+  
+  <svg class="slide__mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M4 24L14 10L24 18" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+    <circle cx="4" cy="24" r="2.5" fill="currentColor"/>
+    <circle cx="14" cy="10" r="2.5" fill="currentColor"/>
+    <circle cx="24" cy="18" r="2.5" fill="currentColor"/>
+  </svg>
+  <p class="slide__kicker">Концепція · Робочі правила</p>
+  <h1 class="slide__title">Що команда застосовує на практиці</h1>
+  <ul class="slide__list">
+    <li>Поточна робота й чернетки залишаються в операційному контурі.</li>
+    <li>Персональні й командні OKR поточного циклу залишаються операційними; інституційними стають лише довгостроково цінні затверджені результати.</li>
+    <li>До інституційного контуру переходить лише погоджена та затверджена версія.</li>
+    <li>Кожний затверджений документ має одне канонічне місце.</li>
+    <li>Доступ обмежується дозволеними матеріалами й діями.</li>
+    <li>Затвердження документів і остаточні рішення залишаються за уповноваженими особами.</li>
+  </ul>
+  <div class="slide__footer">
+    <span>Двоконтурна модель управління знаннями KIT</span>
+    <span>9</span>
+  </div>
+</section>
+
+<!-- Навігація, прогрес-бар та керування (додано) -->
+<div id="gap-progress"></div>
+<div id="gap-nav">
+  <button id="gap-prev" aria-label="Попередній слайд">‹</button>
+  <button id="gap-next" aria-label="Наступний слайд">›</button>
+</div>
+<div id="gap-counter"></div>
+<div id="gap-hint">← → або Space · F — повний екран · S — прокрутка · P — друк/PDF</div>
+<button id="gap-print" aria-label="Друк або зберегти у PDF">⤓ PDF</button>
+<div id="gap-mode" role="group" aria-label="Спосіб перегляду">
+  <button class="gap-mode-btn" id="gap-mode-deck" aria-pressed="false">▦ Слайди</button>
+  <button class="gap-mode-btn" id="gap-mode-scroll" aria-pressed="true">☰ Прокрутка</button>
+</div>
+
+<script>
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var total = slides.length;
+  var idx = 0;
+  var deck = false; // режим презентації (один слайд) vs прокрутка
+
+  var progress = document.getElementById('gap-progress');
+  var counter = document.getElementById('gap-counter');
+  var prevBtn = document.getElementById('gap-prev');
+  var nextBtn = document.getElementById('gap-next');
+  var printBtn = document.getElementById('gap-print');
+  var modeDeckBtn = document.getElementById('gap-mode-deck');
+  var modeScrollBtn = document.getElementById('gap-mode-scroll');
+
+  // Обгортаємо кожен слайд у .slide-wrap (для адаптивного масштабування в прокрутці)
+  slides.forEach(function (s) {
+    var w = document.createElement('div');
+    w.className = 'slide-wrap';
+    s.parentNode.insertBefore(w, s);
+    w.appendChild(s);
+  });
+
+  function setScale() {
+    if (!deck) { document.body.style.removeProperty('--gap-scale'); return; }
+    var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720) * 0.96;
+    document.body.style.setProperty('--gap-scale', s);
+  }
+
+  // Масштабує слайди під ширину екрана в режимі прокрутки (мобільні/вузькі вікна)
+  function fitScroll() {
+    if (deck) {
+      slides.forEach(function (s) { s.style.transform = ''; s.style.transformOrigin = ''; s.parentElement.style.height = ''; });
+      return;
+    }
+    var vw = document.documentElement.clientWidth;
+    slides.forEach(function (s) {
+      var wrap = s.parentElement;
+      var avail = wrap.clientWidth || vw;
+      var scale = Math.min(1, avail / 1280);
+      if (scale < 1) {
+        s.style.transformOrigin = 'top left';
+        s.style.transform = 'scale(' + scale + ')';
+        wrap.style.height = (720 * scale) + 'px';
+      } else {
+        s.style.transform = '';
+        s.style.transformOrigin = '';
+        wrap.style.height = '';
+      }
+    });
+  }
+
+  function render() {
+    slides.forEach(function (s, i) { s.classList.toggle('gap-active', deck && i === idx); });
+    var pct = total > 1 ? (idx / (total - 1)) * 100 : 100;
+    progress.style.width = pct + '%';
+    counter.textContent = (idx + 1) + ' / ' + total;
+    if (deck) slides[idx].scrollIntoView();
+  }
+
+  function go(n) {
+    idx = Math.max(0, Math.min(total - 1, n));
+    render();
+  }
+
+  function toggleDeck(force) {
+    deck = (typeof force === 'boolean') ? force : !deck;
+    document.body.classList.toggle('gap-deck', deck);
+    document.body.classList.toggle('gap-scroll', !deck);
+    if (modeDeckBtn) modeDeckBtn.setAttribute('aria-pressed', String(deck));
+    if (modeScrollBtn) modeScrollBtn.setAttribute('aria-pressed', String(!deck));
+    if (deck) { setScale(); fitScroll(); render(); }
+    else { fitScroll(); window.scrollTo({ top: slides[idx].offsetTop, behavior: 'smooth' }); }
+  }
+
+  // Події кнопок
+  prevBtn.addEventListener('click', function () { go(idx - 1); });
+  nextBtn.addEventListener('click', function () { go(idx + 1); });
+  if (printBtn) printBtn.addEventListener('click', function () { window.print(); });
+  if (modeDeckBtn) modeDeckBtn.addEventListener('click', function () { toggleDeck(true); });
+  if (modeScrollBtn) modeScrollBtn.addEventListener('click', function () { toggleDeck(false); });
+
+  // Клавіатура
+  document.addEventListener('keydown', function (e) {
+    if (['INPUT', 'TEXTAREA'].indexOf(document.activeElement.tagName) !== -1) return;
+    if (!deck && [' ', 'Spacebar', 'ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp', 'Home', 'End'].indexOf(e.key) !== -1) return; // у режимі прокрутки — нативний скрол
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') { go(idx + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { go(idx - 1); e.preventDefault(); }
+    else if (e.key === ' ' || e.key === 'Spacebar') { go(idx + (e.shiftKey ? -1 : 1)); e.preventDefault(); }
+    else if (e.key === 'Home') { go(0); e.preventDefault(); }
+    else if (e.key === 'End') { go(total - 1); e.preventDefault(); }
+    else if (e.key === 'f' || e.key === 'F') { toggleDeck(); e.preventDefault(); }
+    else if (e.key === 's' || e.key === 'S') { toggleDeck(false); e.preventDefault(); }
+    else if (e.key === 'p' || e.key === 'P') { window.print(); e.preventDefault(); }
+  });
+
+  // Свайпи на мобільному
+  var touchX = null, touchY = null;
+  document.addEventListener('touchstart', function (e) {
+    touchX = e.changedTouches[0].clientX; touchY = e.changedTouches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', function (e) {
+    if (touchX === null) return;
+    var dx = e.changedTouches[0].clientX - touchX;
+    var dy = e.changedTouches[0].clientY - touchY;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { go(idx + (dx < 0 ? 1 : -1)); }
+    touchX = touchY = null;
+  }, { passive: true });
+
+  // Коліщатко в режимі презентації гортатиме слайди
+  window.addEventListener('wheel', function (e) {
+    if (!deck || e.ctrlKey) return;
+    var now = (window.__gapWheel || 0);
+    if (Date.now() - now < 450) return; // дебаунс
+    if (Math.abs(e.deltaY) > 12) { go(idx + (e.deltaY > 0 ? 1 : -1)); window.__gapWheel = Date.now(); e.preventDefault(); }
+  }, { passive: false });
+
+  window.addEventListener('resize', function () { setScale(); fitScroll(); });
+
+  // Прокрутка оновлює активний слайд + прогрес-бар
+  window.addEventListener('scroll', function () {
+    if (deck) return;
+    var mid = window.scrollY + window.innerHeight / 2, found = 0;
+    for (var i = 0; i < total; i++) {
+      var top = slides[i].offsetTop, h = slides[i].offsetHeight;
+      if (mid >= top && mid < top + h) { found = i; break; }
+    }
+    idx = found;
+    var pct = total > 1 ? (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100 : 100;
+    progress.style.width = (isFinite(pct) ? pct : 0) + '%';
+    counter.textContent = (idx + 1) + ' / ' + total;
+  }, { passive: true });
+
+  // Старт: за замовчуванням — режим прокрутки (як звичайна сторінка)
+  render();
+  toggleDeck(false);
+})();
+</script>
+
+</body>
+</html>
